@@ -36,14 +36,27 @@
 
 // export default App;
 // src/App.js
-import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
 import AddStudentForm from './components/AddStudentForm';
+import AddTeacherForm from './components/AddTeacherForm';
+import AddEventForm from './components/AddEventForm';
+import ScheduleForm from './firebase/schedule/ScheduleForm';
+// استيراد المكونات الأخرى...
 
 function App() {
   return (
-    <div>
-      <AddStudentForm/>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/students" element={<AddStudentForm />} />
+        <Route path="/teachers" element={<AddTeacherForm />} />
+        <Route path="/events" element={<AddEventForm />} />
+        <Route path="/schedule" element={<ScheduleForm />} />
+        {/* المسارات الأخرى... */}
+      </Routes>
+    </BrowserRouter>
   );
 }
 
