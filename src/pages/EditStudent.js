@@ -1,31 +1,75 @@
-import { useState } from "react";
-import { addStudentToFirestore } from "../firebase/student/studentService";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
-function AddStudentForm() {
-  const [students, setStudent] = useState({
+function EditStudent() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState({
     uid: "",
     fullName: "",
     password: "",
+    schoolId: "",
     years: "",
     branches: "",
-    section: "",
-    schoolId: "",
-    user: "student",
+    section: ""
   });
-  
+
+  useEffect(() => {
+    const fetchStudent = async () => {
+      try {
+        setLoading(true);
+        const studentDoc = await getDoc(doc(db, "students", id));
+        
+        if (studentDoc.exists()) {
+          const studentData = studentDoc.data();
+          setStudent(studentData);
+        } else {
+          alert("لم يتم العثور على بيانات التلميذ!");
+          navigate("/students");
+        }
+      } catch (error) {
+        console.error("خطأ في جلب بيانات التلميذ:", error);
+        alert("حدث خطأ أثناء محاولة جلب بيانات التلميذ");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchStudent();
+    }
+  }, [id, navigate]);
+
   const handleChange = (e) => {
-    setStudent({ ...students, [e.target.name]: e.target.value });
+    setStudent({ ...student, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await addStudentToFirestore(students);
+    
+    try {
+      const studentRef = doc(db, "students", id);
+      await updateDoc(studentRef, student);
+      
+      alert("تم تحديث بيانات التلميذ بنجاح");
+      navigate("/students");
+    } catch (error) {
+      console.error("خطأ في تحديث بيانات التلميذ:", error);
+      alert("حدث خطأ أثناء محاولة تحديث بيانات التلميذ");
+    }
   };
+
+  if (loading) {
+    return <div className="text-center p-6">جاري تحميل البيانات...</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-t-lg shadow-lg">
-        <h2 className="text-2xl font-bold text-white text-center">إضافة تلميذ جديد</h2>
+      <div className="bg-gradient-to-r from-sky-400 to-sky-500 p-6 rounded-t-lg shadow-lg">
+        <h2 className="text-2xl font-bold text-white text-center">تعديل بيانات التلميذ</h2>
       </div>
       
       <form onSubmit={handleSubmit} className="bg-white rounded-b-lg shadow-lg p-6 border-t-0">
@@ -36,6 +80,7 @@ function AddStudentForm() {
               type="text" 
               name="uid" 
               placeholder="أدخل معرف التلميذ" 
+              value={student.uid || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
             />
@@ -47,6 +92,7 @@ function AddStudentForm() {
               type="text" 
               name="fullName" 
               placeholder="أدخل الاسم الكامل" 
+              value={student.fullName || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
             />
@@ -58,6 +104,7 @@ function AddStudentForm() {
               type="password" 
               name="password" 
               placeholder="أدخل كلمة المرور" 
+              value={student.password || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
             />
@@ -66,9 +113,10 @@ function AddStudentForm() {
           <div>
             <label className="block text-gray-700 font-semibold mb-2">معرف المدرسة</label>
             <input 
-              type="number" 
+              type="text" 
               name="schoolId" 
               placeholder="أدخل معرف المدرسة" 
+              value={student.schoolId || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
             />
@@ -78,6 +126,7 @@ function AddStudentForm() {
             <label className="block text-gray-700 font-semibold mb-2">السنة الدراسية</label>
             <select 
               name="years" 
+              value={student.years || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all appearance-none bg-white"
             >
@@ -92,6 +141,7 @@ function AddStudentForm() {
             <label className="block text-gray-700 font-semibold mb-2">الشعبة</label>
             <select 
               name="branches" 
+              value={student.branches || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all appearance-none bg-white"
             >
@@ -105,28 +155,39 @@ function AddStudentForm() {
             <label className="block text-gray-700 font-semibold mb-2">القسم</label>
             <select 
               name="section" 
+              value={student.section || ""}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all appearance-none bg-white"
             >
               <option value="">اختر القسم</option>
               <option value="1a">1</option>
               <option value="2a">2</option>
+              <option value="3a">3</option>
+              <option value="1b">4</option>
+              <option value="2b">5</option>
             </select>
           </div>
         </div>
         
-        <button 
-          type="submit" 
-          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md flex items-center justify-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-          </svg>
-          إضافة التلميذ
-        </button>
+        <div className="flex space-x-4 space-x-reverse">
+          <button 
+            type="submit" 
+            className="flex-1 bg-gradient-to-r from-sky-500 to-sky-600 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-sky-600 hover:to-sky-700 transition-all shadow-md flex items-center justify-center"
+          >
+            حفظ التغييرات
+          </button>
+          
+          <button 
+            type="button" 
+            className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-bold text-lg hover:bg-gray-300 transition-all shadow-md flex items-center justify-center"
+            onClick={() => navigate('/students')}
+          >
+            إلغاء
+          </button>
+        </div>
       </form>
     </div>
   );
 }
 
-export default AddStudentForm;
+export default EditStudent;

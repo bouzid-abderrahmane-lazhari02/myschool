@@ -1,20 +1,52 @@
-import { useState } from "react";
-import { addTeacherToFirestore } from "../firebase/teacher/teacherService";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 const years = ["1", "2", "3"];
 const branches = ["SE", "SM"];
 const sections = ["1a", "2a", "3a", "1b", "2b"];
 
-function AddTeacherForm() {
+function EditTeacher() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [teacher, setTeacher] = useState({
     uid: "",
     name: "",
     subject: "",
     schoolId: "",
-    assignedSections: [], // { year, branch, section }
+    assignedSections: [],
   });
 
   const [selectedAssignments, setSelectedAssignments] = useState([]);
+
+  useEffect(() => {
+    const fetchTeacher = async () => {
+      try {
+        setLoading(true);
+        const teacherDoc = await getDoc(doc(db, "teachers", id));
+        
+        if (teacherDoc.exists()) {
+          const teacherData = teacherDoc.data();
+          setTeacher(teacherData);
+          setSelectedAssignments(teacherData.assignedSections || []);
+        } else {
+          alert("لم يتم العثور على بيانات المعلم!");
+          navigate("/teachers");
+        }
+      } catch (error) {
+        console.error("خطأ في جلب بيانات المعلم:", error);
+        alert("حدث خطأ أثناء محاولة جلب بيانات المعلم");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchTeacher();
+    }
+  }, [id, navigate]);
 
   const handleChange = (e) => {
     setTeacher({ ...teacher, [e.target.name]: e.target.value });
@@ -45,13 +77,30 @@ function AddTeacherForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await addTeacherToFirestore({ ...teacher, assignedSections: selectedAssignments });
+    
+    try {
+      const teacherRef = doc(db, "teachers", id);
+      await updateDoc(teacherRef, {
+        ...teacher,
+        assignedSections: selectedAssignments,
+      });
+      
+      alert("تم تحديث بيانات المعلم بنجاح");
+      navigate("/teachers");
+    } catch (error) {
+      console.error("خطأ في تحديث بيانات المعلم:", error);
+      alert("حدث خطأ أثناء محاولة تحديث بيانات المعلم");
+    }
   };
+
+  if (loading) {
+    return <div className="text-center p-6">جاري تحميل البيانات...</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-t-lg shadow-lg">
-        <h2 className="text-2xl font-bold text-white text-center">إضافة أستاذ جديد</h2>
+      <div className="bg-gradient-to-r from-sky-400 to-sky-500 p-6 rounded-t-lg shadow-lg">
+        <h2 className="text-2xl font-bold text-white text-center">تعديل بيانات الأستاذ</h2>
       </div>
       
       <form onSubmit={handleSubmit} className="p-6 bg-white shadow-lg rounded-b-lg space-y-6">
@@ -62,6 +111,7 @@ function AddTeacherForm() {
               type="text"
               name="uid"
               placeholder="أدخل معرف الأستاذ"
+              value={teacher.uid || ""}
               onChange={handleChange}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
             />
@@ -73,6 +123,7 @@ function AddTeacherForm() {
               type="text"
               name="name"
               placeholder="أدخل الاسم الكامل"
+              value={teacher.name || ""}
               onChange={handleChange}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
             />
@@ -84,6 +135,7 @@ function AddTeacherForm() {
               type="text"
               name="subject"
               placeholder="أدخل المادة التي يدرسها"
+              value={teacher.subject || ""}
               onChange={handleChange}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
             />
@@ -92,17 +144,18 @@ function AddTeacherForm() {
           <div>
             <label className="block text-gray-700 font-semibold mb-2">معرف المدرسة</label>
             <input
-              type="number"
+              type="text"
               name="schoolId"
               placeholder="أدخل معرف المدرسة"
+              value={teacher.schoolId || ""}
               onChange={handleChange}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
             />
           </div>
         </div>
 
-        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-          <h3 className="font-bold text-lg mb-4 text-green-800">اختر الأقسام التي يدرّس فيها:</h3>
+        <div className="bg-sky-50 p-6 rounded-lg border border-sky-200">
+          <h3 className="font-bold text-lg mb-4 text-sky-800">اختر الأقسام التي يدرّس فيها:</h3>
           
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse border border-gray-300">
@@ -146,18 +199,25 @@ function AddTeacherForm() {
           </div>
         </div>
 
-        <button 
-          type="submit" 
-          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md flex items-center justify-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          إضافة الأستاذ
-        </button>
+        <div className="flex space-x-4 space-x-reverse">
+          <button 
+            type="submit" 
+            className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md flex items-center justify-center"
+          >
+            حفظ التغييرات
+          </button>
+          
+          <button 
+            type="button" 
+            className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-bold text-lg hover:bg-gray-300 transition-all shadow-md flex items-center justify-center"
+            onClick={() => navigate('/teachers')}
+          >
+            إلغاء
+          </button>
+        </div>
       </form>
     </div>
   );
 }
 
-export default AddTeacherForm;
+export default EditTeacher;

@@ -1,60 +1,43 @@
 // src/App.js
-// import React, { useState } from 'react';
-// import Login from './components/Login';
-
-// function App() {
-//   const [loggedIn, setLoggedIn] = useState(false);
-
-//   return (
-//     <div>
-//       {loggedIn ? (
-//         <h1>أهلاً بك في لوحة التحكم</h1> // لاحقًا نبدلها بواجهة المدرسة
-//       ) : (
-//         <Login onLogin={() => setLoggedIn(true)} />
-//       )}
-//     </div>
-//   );
-// }
-
-// export default App;
-
- 
-// import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import Login from "./Login";
-// import Dashboard from "./pages/Dashboard"; // إن وجدت
-
-// function App() {
-//   return (
-//     <BrowserRouter>
-//       <Routes>
-//         <Route path="/" element={<Login />} />
-//         <Route path="/dashboard" element={<Dashboard />} />
-//       </Routes>
-//     </BrowserRouter>
-//   );
-// }
-
-// export default App;
-// src/App.js
 import { BrowserRouter } from 'react-router-dom';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import AddStudentForm from './components/AddStudentForm';
 import AddTeacherForm from './components/AddTeacherForm';
 import AddEventForm from './components/AddEventForm';
 import ScheduleForm from './firebase/schedule/ScheduleForm';
-// استيراد المكونات الأخرى...
+import Layout from './components/Layout';
+import Teachers from './pages/Teachers';
+import EditTeacher from './pages/EditTeacher';
+import Students from './pages/Students';
+import EditStudent from './pages/EditStudent';
+import Schedules from './pages/Schedules';
+import EventsPage from './EventsPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/students" element={<AddStudentForm />} />
-        <Route path="/teachers" element={<AddTeacherForm />} />
-        <Route path="/events" element={<AddEventForm />} />
+        {/* إضافة مسار افتراضي يوجه إلى Dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        
+        {/* صفحة إضافة الجدول بدون Layout */}
         <Route path="/schedule" element={<ScheduleForm />} />
-        {/* المسارات الأخرى... */}
+        
+        {/* استخدام مكون Layout كمكون أب لجميع الصفحات الأخرى */}
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/students" element={<Students />} />
+          <Route path="/students/add" element={<AddStudentForm />} />
+          <Route path="/edit-student/:id" element={<EditStudent />} />
+          <Route path="/teachers" element={<Teachers />} />
+          <Route path="/add-teacher" element={<AddTeacherForm />} />
+          <Route path="/edit-teacher/:id" element={<EditTeacher />} />
+          <Route path="/events" element={<EventsPage />} />
+          <Route path="/events/add" element={<AddEventForm />} />
+          <Route path="/schedules" element={<Schedules />} />
+          {/* المسارات الأخرى... */}
+        </Route>
       </Routes>
     </BrowserRouter>
   );

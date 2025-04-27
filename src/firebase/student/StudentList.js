@@ -49,7 +49,7 @@ function StudentList() {
               <td className="border px-4 py-2">{student.section}</td>
               <td className="border px-4 py-2 space-x-2">
                 <button
-                  className="bg-blue-500 text-white px-3 py-1 rounded"
+                  className="bg-green-500 text-white px-3 py-1 rounded"
                   onClick={() => handleEdit(student)}
                 >
                   تعديل

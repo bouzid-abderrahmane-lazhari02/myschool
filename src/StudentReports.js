@@ -66,7 +66,7 @@ export default function StudentReports() {
                     href={student.reportUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 underline"
+                    className="text-green-600 underline"
                   >
                     عرض الكشف
                   </a>
@@ -81,6 +81,7 @@ export default function StudentReports() {
                   onChange={(e) =>
                     handleUpload(student.id, e.target.files[0])
                   }
+                  className="text-green-600"
                 />
               </td>
             </tr>
