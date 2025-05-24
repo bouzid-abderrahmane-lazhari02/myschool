@@ -29,3 +29,13 @@ export default Layout;
     <Outlet />
   </div>
 </nav>
+
+// إضافة رابط سجل الغياب في قائمة الروابط
+const navLinks = [
+  { to: '/dashboard', icon: 'dashboard', text: 'لوحة التحكم' },
+  { to: '/students', icon: 'school', text: 'الطلاب' },
+  { to: '/teachers', icon: 'person', text: 'المعلمين' },
+  { to: '/schedules', icon: 'schedule', text: 'الجداول الدراسية' },
+  { to: '/absences', icon: 'event_busy', text: 'سجل الغيابات' }, // إضافة رابط سجل الغياب
+  { to: '/events', icon: 'event', text: 'الفعاليات' },
+];

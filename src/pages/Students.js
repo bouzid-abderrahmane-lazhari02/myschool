@@ -59,9 +59,9 @@ export default function Students() {
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">التلاميذ</h1>
+          <h1 className="text-3xl font-bold text-blue-800">التلاميذ</h1>
           <button 
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             onClick={navigateToAddStudent}
           >
             إضافة تلميذ جديد
@@ -73,7 +73,7 @@ export default function Students() {
           <input
             type="text"
             placeholder="البحث عن تلميذ..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -90,6 +90,8 @@ export default function Students() {
                 <th className="py-3 px-4 text-right">السنة</th>
                 <th className="py-3 px-4 text-right">الشعبة</th>
                 <th className="py-3 px-4 text-right">القسم</th>
+                <th className="py-3 px-4 text-right">مكان الميلاد</th>
+                <th className="py-3 px-4 text-right">تاريخ الميلاد</th>
                 <th className="py-3 px-4 text-right">الإجراءات</th>
               </tr>
             </thead>
@@ -102,6 +104,8 @@ export default function Students() {
                   <td className="py-3 px-4">{student.years}</td>
                   <td className="py-3 px-4">{student.branches}</td>
                   <td className="py-3 px-4">{student.section}</td>
+                  <td className="py-3 px-4">{student.birthPlace}</td>
+                  <td className="py-3 px-4">{student.birthDate}</td>
                   <td className="py-3 px-4">
                     <div className="flex space-x-2 space-x-reverse">
                       <button 

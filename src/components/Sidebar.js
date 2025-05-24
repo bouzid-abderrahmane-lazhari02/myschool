@@ -9,8 +9,10 @@ const Sidebar = () => {
     { name: "الرئيسية", path: "/dashboard", icon: "home" },
     { name: "التلاميذ", path: "/students", icon: "people" },
     { name: "الأساتذة", path: "/teachers", icon: "school" },
+    { name: "الأقسام", path: "/classes", icon: "class" },
     { name: "الفعاليات", path: "/events", icon: "event" },
     { name: "الجدول الدراسي", path: "/schedules", icon: "schedule" },
+    { name: "سجل الغيابات", path: "/absences", icon: "event_busy" },
   ];
 
   return (

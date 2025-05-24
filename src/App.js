@@ -13,6 +13,15 @@ import Students from './pages/Students';
 import EditStudent from './pages/EditStudent';
 import Schedules from './pages/Schedules';
 import EventsPage from './EventsPage';
+import AttendancePage from './AttendancePage';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+// إضافة استيراد صفحة سجلات الغياب
+import AbsencesPage from './pages/AbsencesPage';
+
+// إضافة استيراد صفحة الأقسام
+import ClassesPage from './pages/ClassesPage';
 
 function App() {
   return (
@@ -23,7 +32,6 @@ function App() {
         
         {/* صفحة إضافة الجدول بدون Layout */}
         <Route path="/schedule" element={<ScheduleForm />} />
-        
         {/* استخدام مكون Layout كمكون أب لجميع الصفحات الأخرى */}
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -33,9 +41,12 @@ function App() {
           <Route path="/teachers" element={<Teachers />} />
           <Route path="/add-teacher" element={<AddTeacherForm />} />
           <Route path="/edit-teacher/:id" element={<EditTeacher />} />
+          <Route path="/classes" element={<ClassesPage />} /> {/* إضافة مسار صفحة الأقسام */}
+          <Route path="/schedules" element={<Schedules />} />
+          <Route path="/absences" element={<AbsencesPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/events/add" element={<AddEventForm />} />
-          <Route path="/schedules" element={<Schedules />} />
+          <Route path="/attendance" element={<AttendancePage />} />
           {/* المسارات الأخرى... */}
         </Route>
       </Routes>

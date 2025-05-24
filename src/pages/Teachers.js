@@ -59,7 +59,7 @@ export default function Teachers() {
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">الأساتذة</h1>
+          <h1 className="text-3xl font-bold text-blue-800">الأساتذة</h1>
           <button 
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             onClick={navigateToAddTeacher}

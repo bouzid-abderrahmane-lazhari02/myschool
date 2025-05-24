@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { addDoc, collection, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, updateDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 function AddEventForm() {
   const [isEditing, setIsEditing] = useState(false);
@@ -15,7 +16,8 @@ function AddEventForm() {
     time: '',
     type: 'faliat',
     target: 'all', // القيمة الافتراضية هي "للجميع"
-    targets: [] // مصفوفة فارغة للأهداف المخصصة
+    targets: [], // مصفوفة فارغة للأهداف المخصصة
+    schoolId: localStorage.getItem('schoolId') || '' // استخراج معرف المدرسة من التخزين المحلي كقيمة افتراضية
   });
 
   // حالة الأقسام المستهدفة
@@ -25,8 +27,84 @@ function AddEventForm() {
     section: ''
   });
 
+  // إضافة حالات للبيانات المجلوبة من قاعدة البيانات
+  const [yearsData, setYearsData] = useState([]);
+  const [branchesData, setBranchesData] = useState([]);
+  const [sectionsData, setSectionsData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   // حالة عرض حقول الأقسام المستهدفة
   const [showTargetFields, setShowTargetFields] = useState(false);
+
+  // جلب السنوات الدراسية عند تحميل الصفحة أو تغيير معرف المدرسة
+  useEffect(() => {
+    const fetchYears = async () => {
+      if (event.schoolId) {
+        setLoading(true);
+        try {
+          const yearsQuery = query(collection(db, "school", event.schoolId, "years"));
+          const yearsSnapshot = await getDocs(yearsQuery);
+          const yearsData = yearsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setYearsData(yearsData);
+        } catch (error) {
+          console.error("خطأ في جلب السنوات الدراسية:", error);
+          toast.error("حدث خطأ أثناء جلب السنوات الدراسية");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchYears();
+  }, [event.schoolId]);
+
+  // جلب الشعب عند تغيير السنة الدراسية
+  useEffect(() => {
+    const fetchBranches = async () => {
+      if (event.schoolId && targetSection.year) {
+        setLoading(true);
+        try {
+          const branchesQuery = query(collection(db, "school", event.schoolId, "years", targetSection.year, "branches"));
+          const branchesSnapshot = await getDocs(branchesQuery);
+          const branchesData = branchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setBranchesData(branchesData);
+        } catch (error) {
+          console.error("خطأ في جلب الشعب:", error);
+          toast.error("حدث خطأ أثناء جلب الشعب");
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setBranchesData([]);
+      }
+    };
+
+    fetchBranches();
+  }, [event.schoolId, targetSection.year]);
+
+  // جلب الأقسام عند تغيير الشعبة
+  useEffect(() => {
+    const fetchSections = async () => {
+      if (event.schoolId && targetSection.year && targetSection.branch) {
+        setLoading(true);
+        try {
+          const sectionsQuery = query(collection(db, "school", event.schoolId, "years", targetSection.year, "branches", targetSection.branch, "sectoins"));
+          const sectionsSnapshot = await getDocs(sectionsQuery);
+          const sectionsData = sectionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setSectionsData(sectionsData);
+        } catch (error) {
+          console.error("خطأ في جلب الأقسام:", error);
+          toast.error("حدث خطأ أثناء جلب الأقسام");
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setSectionsData([]);
+      }
+    };
+
+    fetchSections();
+  }, [event.schoolId, targetSection.year, targetSection.branch]);
 
   // التحقق مما إذا كان هناك بيانات فعالية للتعديل
   useEffect(() => {
@@ -97,7 +175,7 @@ function AddEventForm() {
     setTargetSection({
       year: '',
       branch: '',
-      section: ''
+      sections: ''
     });
   };
 
@@ -122,58 +200,72 @@ function AddEventForm() {
     return date;
   };
 
+  // استخراج معرف المدرسة من التخزين المحلي أو استخدام قيمة افتراضية
+  const schoolId = localStorage.getItem('schoolId') || "defaultSchool";
+  
   // دالة لإرسال النموذج
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // التحقق من وجود أقسام مستهدفة إذا كان الهدف مخصصًا
-    if (event.target === 'custom' && event.targets.length === 0) {
-      alert('يرجى إضافة قسم مستهدف واحد على الأقل');
-      return;
-    }
-    
+ 
     try {
-      // تحويل التاريخ والوقت إلى طابع زمني
-      const dateTimestamp = convertToTimestamp(event.date, event.time);
+      // التحقق من إدخال معرف المدرسة
+      if (!event.schoolId) {
+        toast.error("يرجى إدخال معرف المدرسة");
+        return;
+      }
       
-      // إعداد بيانات الفعالية للإرسال
+      // إنشاء كائن البيانات
       const eventData = {
         title: event.title,
-        date: dateTimestamp,
         type: event.type,
+        date: event.date ? new Date(event.date) : null,
         time: event.time,
         target: event.target,
-        targets: event.target === 'custom' ? event.targets : []
+        targets: event.targets,
+        schoolId: event.schoolId, // إضافة معرف المدرسة
+        updatedAt: new Date(), // إضافة تاريخ التحديث
       };
       
       if (isEditing && eventId) {
         // تحديث الفعالية الموجودة
-        await updateDoc(doc(db, 'events', eventId), {
-          ...eventData,
-          updatedAt: serverTimestamp()
-        });
-        alert('تم تعديل الفعالية بنجاح');
+        const eventRef = doc(db, "school", event.schoolId, "events", eventId);
+        await updateDoc(eventRef, eventData);
+        toast.success("تم تحديث الفعالية بنجاح");
       } else {
         // إضافة فعالية جديدة
-        await addDoc(collection(db, 'events'), {
-          ...eventData,
-          createdAt: serverTimestamp()
-        });
-        alert('تم إضافة الفعالية بنجاح');
+        const eventRef = doc(collection(db, "school", event.schoolId, "events"));
+        // إضافة معرف الفعالية والتاريخ للفعاليات الجديدة
+        eventData.id = eventRef.id;
+        eventData.createdAt = new Date();
+        await setDoc(eventRef, eventData);
+        toast.success("تمت إضافة الفعالية بنجاح");
       }
+      
+      // حفظ معرف المدرسة في التخزين المحلي للاستخدام المستقبلي
+      localStorage.setItem('schoolId', event.schoolId);
+      
+      // إعادة تعيين النموذج
+      setEvent({
+        title: '',
+        date: '',
+        time: '',
+        type: 'faliat',
+        target: 'all',
+        targets: [],
+        schoolId: event.schoolId // الاحتفاظ بمعرف المدرسة للاستخدام المستقبلي
+      });
       
       // العودة إلى صفحة الفعاليات
       navigate('/events');
-      
     } catch (error) {
-      console.error('خطأ في حفظ الفعالية:', error);
-      alert('حدث خطأ أثناء حفظ الفعالية');
+      console.error(isEditing ? "خطأ في تحديث الفعالية:" : "خطأ في إضافة الفعالية:", error);
+      toast.error(isEditing ? "حدث خطأ أثناء تحديث الفعالية" : "حدث خطأ أثناء إضافة الفعالية");
     }
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6">
-      <div className="bg-gradient-to-r from-sky-400 to-sky-500 p-6 rounded-t-lg shadow-lg">
+      <div className="bg-gradient-to-r from-blue-400 to-blue-500 p-6 rounded-t-lg shadow-lg">
         <h2 className="text-2xl font-bold text-white text-center">
           {isEditing ? "تعديل الفعالية" : "إضافة فعالية جديدة"}
         </h2>
@@ -195,6 +287,19 @@ function AddEventForm() {
           </div>
           
           <div>
+            <label className="block text-gray-700 font-semibold mb-2">معرف المدرسة</label>
+            <input 
+              type="text" 
+              name="schoolId" 
+              placeholder="أدخل معرف المدرسة" 
+              value={event.schoolId}
+              onChange={handleChange} 
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
+              required
+            />
+          </div>
+          
+          <div>
             <label className="block text-gray-700 font-semibold mb-2">نوع الفعالية</label>
             <select 
               name="type" 
@@ -204,8 +309,8 @@ function AddEventForm() {
               required
             >
               <option value="faliat">فعالية</option>
-              <option value="fard">فرض</option>
-              <option value="nashat">نشاط</option>
+              <option value="antiro">فرض</option>
+              <option value="faliat">نشاط</option>
             </select>
           </div>
           
@@ -237,7 +342,7 @@ function AddEventForm() {
             <label className="block text-gray-700 font-semibold mb-2">الفئة المستهدفة</label>
             <select 
               name="target" 
-              value={event.target}
+              value={event.targets}
               onChange={handleChange} 
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all appearance-none bg-white"
               required
@@ -255,38 +360,56 @@ function AddEventForm() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">السنة</label>
-                <input 
-                  type="text" 
+                <select 
                   name="year" 
-                  placeholder="مثال: 1" 
                   value={targetSection.year}
                   onChange={handleTargetSectionChange} 
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
-                />
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                  disabled={loading || yearsData.length === 0}
+                >
+                  <option value="">اختر السنة</option>
+                  {yearsData.map(year => (
+                    <option key={year.id} value={year.id}>
+                      {year.name || year.id}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">الشعبة</label>
-                <input 
-                  type="text" 
+                <select 
                   name="branch" 
-                  placeholder="مثال: علوم" 
                   value={targetSection.branch}
                   onChange={handleTargetSectionChange} 
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
-                />
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                  disabled={loading || branchesData.length === 0 || !targetSection.year}
+                >
+                  <option value="">اختر الشعبة</option>
+                  {branchesData.map(branch => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name || branch.id}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">القسم</label>
-                <input 
-                  type="text" 
+                <select 
                   name="section" 
-                  placeholder="مثال: أ" 
                   value={targetSection.section}
                   onChange={handleTargetSectionChange} 
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
-                />
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                  disabled={loading || sectionsData.length === 0 || !targetSection.branch}
+                >
+                  <option value="">اختر القسم</option>
+                  {sectionsData.map(section => (
+                    <option key={section.id} value={section.id}>
+                      {section.name || section.id}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             
@@ -294,6 +417,7 @@ function AddEventForm() {
               type="button" 
               onClick={addTargetSection}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all"
+              disabled={!targetSection.year || !targetSection.branch || !targetSection.section}
             >
               إضافة قسم
             </button>
@@ -302,10 +426,10 @@ function AddEventForm() {
               <div className="mt-4">
                 <h4 className="font-semibold mb-2">الأقسام المضافة:</h4>
                 <ul className="space-y-2">
-                  {event.targets.map((target, index) => (
+                  {event.targets.map((targets, index) => (
                     <li key={index} className="flex items-center justify-between bg-white p-2 rounded border">
                       <span>
-                        السنة: {target.year} | الشعبة: {target.branch} | القسم: {target.sections.join(', ')}
+                        السنة: {targets.year} | الشعبة: {targets.branch} | القسم: {targets.sections.join(', ')}
                       </span>
                       <button 
                         type="button" 
@@ -325,7 +449,7 @@ function AddEventForm() {
         <div className="flex space-x-4 space-x-reverse">
           <button 
             type="submit" 
-            className="flex-1 bg-gradient-to-r from-sky-500 to-sky-600 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-sky-600 hover:to-sky-700 transition-all shadow-md flex items-center justify-center"
+            className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-sky-600 hover:to-sky-700 transition-all shadow-md flex items-center justify-center"
           >
             {isEditing ? "حفظ التعديلات" : "إضافة الفعالية"}
           </button>

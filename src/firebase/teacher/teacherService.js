@@ -3,7 +3,7 @@ import { db } from "../../firebase";
 import { doc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 export async function addTeacherToFirestore(teacher) {
-  const { uid, name, subject, schoolId, assignedSections } = teacher;
+  const { uid, name, subject, schoolId, assignedSections, password } = teacher;
 
   // حفظ الأستاذ
   await setDoc(doc(db, "teachers", uid), {
@@ -11,6 +11,7 @@ export async function addTeacherToFirestore(teacher) {
     name,
     subject,
     schoolId,
+    password, // إضافة كلمة المرور
     assignedSections, // يمكن استخدامها لاحقًا للعرض
     createdAt: new Date(),
   });

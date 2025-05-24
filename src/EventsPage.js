@@ -4,9 +4,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  updateDoc,
   query,
-  where,
   orderBy,
   Timestamp
 } from "firebase/firestore";
@@ -14,19 +12,11 @@ import { db } from "./firebase";
 import { useNavigate } from "react-router-dom";
 
 function EventsPage() {
-  const [editingId, setEditingId] = useState(null);
   const [events, setEvents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    title: "",
-    type: "فرض",
-    date: "",
-    time: "",
-    level: "",
-    stream: "",
-    class: "",
-  });
+  // استخراج معرف المدرسة من التخزين المحلي أو استخدام قيمة افتراضية
+  const schoolId = localStorage.getItem('schoolId') || "defaultSchool";
 
   const fetchEvents = async () => {
     try {
@@ -35,8 +25,9 @@ function EventsPage() {
       today.setHours(0, 0, 0, 0);
       
       // استعلام لجلب جميع الفعاليات وترتيبها حسب التاريخ
+      // تعديل المسار ليكون school/schoolId/events
       const eventsQuery = query(
-        collection(db, "events"),
+        collection(db, "school", schoolId, "events"),
         orderBy("date", "asc")
       );
       
@@ -52,37 +43,38 @@ function EventsPage() {
     fetchEvents();
   }, []);
 
-  const handleUpdate = async () => {
-    if (!editingId) return;
-
-    await updateDoc(doc(db, "events", editingId), {
-      title: form.title,
-      type: form.type,
-      date: form.date ? new Date(form.date) : null,
-      time: form.time,
-      target: {
-        level: form.level,
-        stream: form.stream,
-        class: form.class,
-      },
-    });
-
-    setEditingId(null);
-    setForm({
-      title: "",
-      type: "فرض",
-      date: "",
-      time: "",
-      level: "",
-      stream: "",
-      class: "",
-    });
+  const handleDelete = async (id) => {
+    // تعديل المسار ليكون school/schoolId/events
+    await deleteDoc(doc(db, "school", schoolId, "events", id));
     fetchEvents();
   };
 
-  const handleDelete = async (id) => {
-    await deleteDoc(doc(db, "events", id));
-    fetchEvents();
+  // دالة جديدة للانتقال إلى صفحة تعديل الفعالية
+  const navigateToEditEvent = (event) => {
+    // تحويل التاريخ إلى تنسيق مناسب للنموذج
+    const formattedDate = event.date instanceof Timestamp 
+      ? event.date.toDate().toISOString().split('T')[0]
+      : event.date instanceof Date 
+        ? event.date.toISOString().split('T')[0]
+        : event.date;
+    
+    // إنشاء كائن الفعالية للتعديل
+    const eventToEdit = {
+      id: event.id,
+      title: event.title,
+      type: event.type,
+      date: formattedDate,
+      time: event.time,
+      target: event.target || 'all',
+      targets: event.targets || [],
+      schoolId: event.schoolId || schoolId
+    };
+    
+    // تخزين بيانات الفعالية في التخزين المحلي
+    localStorage.setItem('editEvent', JSON.stringify(eventToEdit));
+    
+    // الانتقال إلى صفحة إضافة الفعالية
+    navigate('/events/add');
   };
 
   // تصفية الفعاليات بناءً على البحث
@@ -102,10 +94,10 @@ function EventsPage() {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">الفعاليات القادمة</h2>
+        <h1 className="text-3xl font-bold text-blue-800">الفعاليات القادمة</h1>
         <button 
           onClick={navigateToAddEvent}
-          className="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors flex items-center"
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center"
         >
           <span className="mr-2">+</span>
           إضافة فعالية
@@ -155,23 +147,8 @@ function EventsPage() {
                 </td>
                 <td className="border px-4 py-2 flex gap-2">
                   <button
-                    onClick={() => {
-                      setForm({
-                        title: event.title,
-                        type: event.type,
-                        date: event.date instanceof Timestamp 
-                          ? event.date.toDate().toISOString().split('T')[0]
-                          : event.date instanceof Date 
-                            ? event.date.toISOString().split('T')[0]
-                            : event.date,
-                        time: event.time,
-                        level: event.target?.level || "",
-                        stream: event.target?.stream || "",
-                        class: event.target?.class || "",
-                      });
-                      setEditingId(event.id);
-                    }}
-                    className="bg-green-500 text-white px-2 py-1 rounded"
+                    onClick={() => navigateToEditEvent(event)}
+                    className="bg-blue-500 text-white px-2 py-1 rounded"
                   >
                     تعديل
                   </button>
@@ -193,65 +170,6 @@ function EventsPage() {
           )}
         </tbody>
       </table>
-
-      {/* النموذج للتعديل فقط */}
-      {editingId && (
-        <div className="mt-6 p-4 border border-gray-300 rounded-lg">
-          <h3 className="text-lg font-bold mb-4">تعديل الفعالية</h3>
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <input
-              placeholder="اسم الفعالية"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="border px-2 py-1"
-            />
-            <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              className="border px-2 py-1"
-            >
-              <option>فرض</option>
-              <option>نشاط</option>
-            </select>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-              className="border px-2 py-1"
-            />
-            <input
-              type="time"
-              value={form.time}
-              onChange={(e) => setForm({ ...form, time: e.target.value })}
-              className="border px-2 py-1"
-            />
-            <input
-              placeholder="السنة (مثلاً: سنة أولى)"
-              value={form.level}
-              onChange={(e) => setForm({ ...form, level: e.target.value })}
-              className="border px-2 py-1"
-            />
-            <input
-              placeholder="الشعبة (مثلاً: علوم)"
-              value={form.stream}
-              onChange={(e) => setForm({ ...form, stream: e.target.value })}
-              className="border px-2 py-1"
-            />
-            <input
-              placeholder="القسم (مثلاً: 1AS-A)"
-              value={form.class}
-              onChange={(e) => setForm({ ...form, class: e.target.value })}
-              className="border px-2 py-1"
-            />
-            <button
-              className="col-span-2 bg-sky-500 text-white rounded px-4 py-2"
-              onClick={handleUpdate}
-            >
-              تحديث الفعالية
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

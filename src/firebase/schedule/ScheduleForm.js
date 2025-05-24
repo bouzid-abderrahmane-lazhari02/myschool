@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { doc, setDoc, collection } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase"; // تأكد أن db معرف من firebase config
 import { useNavigate } from "react-router-dom";
+import { fetchYears, fetchBranches, fetchSections } from "../school/schoolService";
 
 const hours = [
   "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00",
@@ -15,10 +16,16 @@ function ScheduleForm() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [scheduleId, setScheduleId] = useState(null);
-  const [schoolId, setSchoolId] = useState("");
+  const [schoolId, setSchoolId] = useState(localStorage.getItem("schoolId") || "");
   const [year, setYear] = useState("");
   const [branch, setBranch] = useState("");
   const [section, setSection] = useState("");
+  
+  // إضافة حالات للبيانات المجلوبة من قاعدة البيانات
+  const [yearsData, setYearsData] = useState([]);
+  const [branchesData, setBranchesData] = useState([]);
+  const [sectionsData, setSectionsData] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const [schedule, setSchedule] = useState(() =>
     hours.map((time) => {
@@ -27,6 +34,67 @@ function ScheduleForm() {
       return obj;
     })
   );
+
+  // جلب السنوات الدراسية عند تحميل الصفحة أو تغيير معرف المدرسة
+  useEffect(() => {
+    const getYears = async () => {
+      if (schoolId) {
+        setLoading(true);
+        try {
+          const years = await fetchYears(schoolId);
+          setYearsData(years);
+        } catch (error) {
+          console.error("خطأ في جلب السنوات الدراسية:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    getYears();
+  }, [schoolId]);
+
+  // جلب الشعب عند تغيير السنة الدراسية
+  useEffect(() => {
+    const getBranches = async () => {
+      if (schoolId && year) {
+        setLoading(true);
+        try {
+          const branches = await fetchBranches(schoolId, year);
+          setBranchesData(branches);
+        } catch (error) {
+          console.error("خطأ في جلب الشعب:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setBranchesData([]);
+      }
+    };
+
+    getBranches();
+  }, [schoolId, year]);
+
+  // جلب الأقسام عند تغيير الشعبة
+  useEffect(() => {
+    const getSections = async () => {
+      if (schoolId && year && branch) {
+        setLoading(true);
+        try {
+          const sections = await fetchSections(schoolId, year, branch);
+          setSectionsData(sections);
+        } catch (error) {
+          console.error("خطأ في جلب الأقسام:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setSectionsData([]);
+      }
+    };
+
+    getSections();
+  }, [schoolId, year, branch]);
 
   // التحقق مما إذا كان هناك بيانات جدول للتعديل
   useEffect(() => {
@@ -51,10 +119,6 @@ function ScheduleForm() {
         setSchoolId(parsedData.schoolId || localStorage.getItem("schoolId") || "");
         
         // محاولة ملء خانات الجدول بناءً على البيانات المتاحة
-        // هنا نفترض أن هناك بيانات مخزنة في مكان ما في قاعدة البيانات
-        // يمكننا استرجاعها باستخدام معرف الجدول
-        
-        // مثال: إذا كان لدينا بيانات في parsedData.scheduleData
         if (parsedData.scheduleData) {
           setSchedule(parsedData.scheduleData);
         } else {
@@ -87,14 +151,20 @@ function ScheduleForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // التحقق من صحة البيانات
+    if (!schoolId || !year || !branch || !section) {
+      alert("❌ يرجى ملء جميع الحقول المطلوبة!");
+      return;
+    }
+
     try {
-      // استخدام معرف المدرسة من الحقل أو من التخزين المحلي
-      const currentSchoolId = schoolId || localStorage.getItem("schoolId") || "default";
+      // حفظ معرف المدرسة في التخزين المحلي للاستخدام المستقبلي
+      localStorage.setItem("schoolId", schoolId);
       
       // إضافة الجدول إلى المسار الأصلي
-      const path = `school/${currentSchoolId}/years/${year}/branches/${branch}/sectoins/${section}`;
+      const path = `school/${schoolId}/years/${year}/branches/${branch}/sectoins/${section}`;
       const docRef = doc(db, path);
-      await setDoc(docRef, { schedule });
+      await setDoc(docRef, { schedule }, { merge: true });
   
       // إضافة أو تحديث الجدول في مجموعة schedules للعرض في الصفحة الرئيسية
       let scheduleRef;
@@ -113,7 +183,7 @@ function ScheduleForm() {
         subject: "المادة", // يمكنك تعديل هذا حسب احتياجاتك
         teacher: "الأستاذ", // يمكنك تعديل هذا حسب احتياجاتك
         time: "08:00 - 09:00", // يمكنك تعديل هذا حسب احتياجاتك
-        schoolId: currentSchoolId,
+        schoolId: schoolId,
         createdAt: new Date().toISOString(),
         // تخزين بيانات الجدول كاملة لاستخدامها في التعديل لاحقًا
         scheduleData: schedule
@@ -123,27 +193,84 @@ function ScheduleForm() {
       navigate('/schedules'); // العودة إلى صفحة الجداول بعد الإضافة أو التعديل
     } catch (error) {
       console.error("خطأ في حفظ الجدول:", error);
-      alert("❌ حدث خطأ أثناء حفظ الجدول!");
+      alert("❌ حدث خطأ أثناء حفظ الجدول: " + error.message);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-6 bg-white rounded-xl shadow-xl overflow-auto max-w-6xl mx-auto mt-10">
-      <h2 className="text-2xl font-bold text-center mb-6 text-sky-700">
+      <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
         {isEditing ? "📝 تعديل جدول الحصص" : "📚 إضافة جدول الحصص"}
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <input type="text" placeholder="معرف المدرسة" value={schoolId} onChange={(e) => setSchoolId(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm" />
-        <input type="text" placeholder="السنة الدراسية (مثلاً 1)" value={year} onChange={(e) => setYear(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm" />
-        <input type="text" placeholder="الشعبة (مثلاً SE)" value={branch} onChange={(e) => setBranch(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm" />
-        <input type="text" placeholder="القسم (مثلاً 1a)" value={section} onChange={(e) => setSection(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm" />
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">معرف المدرسة</label>
+          <input 
+            type="text" 
+            placeholder="معرف المدرسة" 
+            value={schoolId} 
+            onChange={(e) => setSchoolId(e.target.value)} 
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm" 
+          />
+        </div>
+        
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">السنة الدراسية</label>
+          <select 
+            value={year} 
+            onChange={(e) => setYear(e.target.value)} 
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm appearance-none bg-white"
+            disabled={loading || yearsData.length === 0}
+          >
+            <option value="">اختر السنة الدراسية</option>
+            {yearsData.map(yearItem => (
+              <option key={yearItem.id} value={yearItem.id}>
+                {yearItem.name || yearItem.id}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">الشعبة</label>
+          <select 
+            value={branch} 
+            onChange={(e) => setBranch(e.target.value)} 
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm appearance-none bg-white"
+            disabled={loading || branchesData.length === 0}
+          >
+            <option value="">اختر الشعبة</option>
+            {branchesData.map(branchItem => (
+              <option key={branchItem.id} value={branchItem.id}>
+                {branchItem.name || branchItem.id}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">القسم</label>
+          <select 
+            value={section} 
+            onChange={(e) => setSection(e.target.value)} 
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-sm appearance-none bg-white"
+            disabled={loading || sectionsData.length === 0}
+          >
+            <option value="">اختر القسم</option>
+            {sectionsData.map(sectionItem => (
+              <option key={sectionItem.id} value={sectionItem.id}>
+                {sectionItem.name || sectionItem.id}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="overflow-auto">
-        <table className="table-auto w-full border border-gray-300 text-center">
+        <table className="table-auto w-full border border-blue-300 text-center">
           <thead>
-            <tr className="bg-green-100 text-green-800">
+            <tr className="bg-blue-100 text-blue-800">
               <th className="border p-2">الوقت</th>
               {days.map((day) => (
                 <th key={day} className="border p-2">{day}</th>
@@ -171,7 +298,11 @@ function ScheduleForm() {
       </div>
 
       <div className="flex justify-center mt-6 gap-4">
-        <button type="submit" className="bg-sky-600 text-white px-6 py-2 rounded-lg hover:bg-sky-700 transition-all">
+        <button 
+          type="submit" 
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-sky-700 transition-all"
+          disabled={loading}
+        >
           {isEditing ? "💾 حفظ التعديلات" : "💾 حفظ الجدول"}
         </button>
         <button 

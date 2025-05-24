@@ -133,9 +133,9 @@ export default function Schedules() {
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-3xl font-bold text-gray-800">الجداول الدراسية</h1>
+          <h1 className="text-3xl font-bold text-blue-800">الجداول الدراسية</h1>
           <button 
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
             onClick={navigateToAddSchedule}
           >
             <span className="mr-2">+</span>
